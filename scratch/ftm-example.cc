@@ -62,7 +62,7 @@ int frequency = 0;
 int numberOfStations = 2;
 int rxGain = 0;
 int propagationLossModel = 0;
-int channelBandwidth = 0;
+int channelBandwidth = 20;
 int distance = 5;
 
 NS_LOG_COMPONENT_DEFINE ("FtmExample");
@@ -111,21 +111,21 @@ static void GenerateTraffic (Ptr<WifiNetDevice> ap, Ptr<WifiNetDevice> sta, Addr
   wireless_sig_str_error->SetFtmMap(map);
   wireless_sig_str_error->SetNode(sta->GetNode());
   switch(channelBandwidth){
-  	case 0:
+  	case 20:
       wireless_sig_str_error->SetChannelBandwidth(WiredFtmErrorModel::Channel_20_MHz);
-      std::cout << "Channel Bandwidth:      20 MHz" << std::endl;
+      // std::cout << "Channel Bandwidth:      20 MHz" << std::endl;
       break;
-    case 1:
+    case 40:
 	    wireless_sig_str_error->SetChannelBandwidth(WiredFtmErrorModel::Channel_40_MHz);
-      std::cout << "Channel Bandwidth:      40 MHz" << std::endl;
+      // std::cout << "Channel Bandwidth:      40 MHz" << std::endl;
       break;
-    case 2:
+    case 80:
 	    wireless_sig_str_error->SetChannelBandwidth(WiredFtmErrorModel::Channel_80_MHz);
-      std::cout << "Channel Bandwidth:      80 MHz" << std::endl;
+      // std::cout << "Channel Bandwidth:      80 MHz" << std::endl;
       break;
-    case 3:
+    case 160:
 	    wireless_sig_str_error->SetChannelBandwidth(WiredFtmErrorModel::Channel_160_MHz);
-      std::cout << "Channel Bandwidth:      160 MHz" << std::endl;
+      // std::cout << "Channel Bandwidth:      160 MHz" << std::endl;
       break;
   }
 
@@ -171,12 +171,12 @@ int main (int argc, char *argv[])
   cmd.AddValue ("ftmsPerBurst", "0 - 7", ftmsPerBurst);
   cmd.AddValue ("formatAndBandwidth", "0 - 63", formatAndBandwidth);
   cmd.AddValue ("burstPeriod", "0 or 1", burstPeriod);
-  cmd.AddValue ("frequency", "2.4 (0) or 5 GHz (1)", frequency);
-  cmd.AddValue ("rxGain", "(0) - no gain, (- 3138) - add gain", rxGain);
+  cmd.AddValue ("frequency", "2.4 (0) or 5 (1) GHz", frequency);
+  cmd.AddValue ("rxGain", "(0) - no gain, (1- 3138) - add gain", rxGain);
   cmd.AddValue ("propagationLossModel", "ThreeGpp (0) or Nakagami (1)", propagationLossModel);
   cmd.AddValue ("numberOfStations", "1 - ...", numberOfStations);
-  cmd.AddValue ("channelBandwidth", "20(0) / 40(1) / 80(2) / 160(3) MHz", channelBandwidth);
-  cmd.AddValue ("distance", "0 - ...", distance);
+  cmd.AddValue ("channelBandwidth", "20/40/80/160 MHz", channelBandwidth);
+  cmd.AddValue ("distance", "0 - ... m", distance);
 
   cmd.Parse (argc, argv);
 
@@ -184,7 +184,7 @@ int main (int argc, char *argv[])
   Config::SetDefault ("ns3::RegularWifiMac::FTM_Enabled", BooleanValue(true));
 
   NodeContainer c;
-  c.Create (numberOfStations + 1);
+  c.Create (numberOfStations + 1); // 1 for the AP
 
   WifiHelper wifi;
   
@@ -229,65 +229,65 @@ int main (int argc, char *argv[])
   // Setup the rest of the mac
   Ssid ssid = Ssid ("wifi-default");
 
-  // setup ap.
+  // ------------------------------Setup AP -------------------------------
   wifiMac.SetType ("ns3::ApWifiMac",
                    "Ssid", SsidValue (ssid));
   NetDeviceContainer apDevice = wifi.Install (wifiPhy, wifiMac, c.Get (0));
   NetDeviceContainer devices = apDevice;
 
-  wifiMac.SetType ("ns3::StaWifiMac",
-                   "Ssid", SsidValue (ssid));
-  // wifiMac.SetType ("ns3::StaWifiMac");
-  NetDeviceContainer stations[numberOfStations] = {};
-  stations[0] = wifi.Install (wifiPhy, wifiMac, c.Get (1));
-  devices.Add (stations[0]);
-
-  //   wifiMac.SetType ("ns3::StaWifiMac",
-  //                    "Ssid", SsidValue (ssid));
-  //   // wifiMac.SetType ("ns3::StaWifiMac");
-  // setup stations.
-  // for (int i = 1; i <= numberOfStations; i++){
-  //   NetDeviceContainer staDevice = wifi.Install (wifiPhy, wifiMac, c.Get (i));
-  //   devices.Add (staDevice);
-  //   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-  //   positionAlloc->Add (Vector (5, 0, 0));
-  //   mobility.SetPositionAllocator (positionAlloc);
-  //   mobility.Install(c.Get (1));
-  //   Ptr<NetDevice> sta = staDevice.Get(0);
-  //   Ptr<WifiNetDevice> wifi_sta = sta->GetObject<WifiNetDevice>();
-
-  // }
-  stations[1] = wifi.Install (wifiPhy, wifiMac, c.Get (2));
-  devices.Add (stations[1]);
-
-  std::cout << "Number of stations:     " << c.GetN() -1 << std::endl;
-
-  Ptr<ListPositionAllocator> positionAlloc2 = CreateObject<ListPositionAllocator> ();
-  positionAlloc2->Add (Vector (0.0, 0.0, 0.0));
-  mobility.SetPositionAllocator (positionAlloc2);
+  // AP (0)
+  Ptr<ListPositionAllocator> positionAlloc_AP = CreateObject<ListPositionAllocator> ();
+  positionAlloc_AP->Add (Vector (0.0, 0.0, 0.0));
+  mobility.SetPositionAllocator (positionAlloc_AP);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (c.Get(0));
-
-  Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-  positionAlloc->Add (Vector (5, 0, 0));
-  mobility.SetPositionAllocator (positionAlloc);
-  mobility.Install(c.Get (1));
-
-  Ptr<ListPositionAllocator> positionAlloc_2 = CreateObject<ListPositionAllocator> ();
-  positionAlloc_2->Add (Vector (10, 0, 0));
-  mobility.SetPositionAllocator (positionAlloc_2);
-  mobility.Install(c.Get (2));
-
+  
   Ptr<NetDevice> ap = apDevice.Get(0);
-  Ptr<NetDevice> sta = stations[0].Get(0);
-  Ptr<NetDevice> sta_2 = stations[1].Get(0);
 
   Address recvAddr = ap->GetAddress();
 
   //convert net device to wifi net device
   Ptr<WifiNetDevice> wifi_ap = ap->GetObject<WifiNetDevice>();
-  Ptr<WifiNetDevice> wifi_sta = sta->GetObject<WifiNetDevice>();
-  Ptr<WifiNetDevice> wifi_sta_2 = sta_2->GetObject<WifiNetDevice>();
+
+  // ------------------------------Setup STAs------------------------------
+  wifiMac.SetType ("ns3::StaWifiMac",
+                   "Ssid", SsidValue (ssid));
+  // wifiMac.SetType ("ns3::StaWifiMac");
+
+  NetDeviceContainer staDevices[numberOfStations];
+  Ptr<ListPositionAllocator> positionAllocs [numberOfStations];
+  Ptr<NetDevice> stations[numberOfStations];
+  Ptr<WifiNetDevice> wifi_stations[numberOfStations];
+
+  // setup stations.
+  for (int i = 0; i < numberOfStations; i++){
+    double xCoord, yCoord;
+    if (i % 4 == 0) { // First station
+      xCoord = distanceBetweenStations;
+      yCoord = -(i / 4) * distanceBetweenStations;
+    } else if (i % 4 == 1) { // Second station
+      xCoord = distanceBetweenStations + (i / 4) * distanceBetweenStations;
+      yCoord = distanceBetweenStations;
+    } else if (i % 4 == 2) { // Third station
+      xCoord = -distanceBetweenStations;
+      yCoord = distanceBetweenStations + (i / 4) * distanceBetweenStations;
+    } else { // Fourth station
+      xCoord = -(i / 4) * distanceBetweenStations;
+      yCoord = -distanceBetweenStations;
+    }
+    
+    staDevices[i] = wifi.Install (wifiPhy, wifiMac, c.Get (i+1));
+    devices.Add (staDevices[i]);
+    positionAllocs[i] = CreateObject<ListPositionAllocator> ();
+    positionAllocs[i]->Add (Vector (5 + i*5, 0, 0));
+    mobility.SetPositionAllocator (positionAllocs[i]);
+    mobility.Install(c.Get (i+1));
+    stations[i] = staDevices[i].Get(0);
+    wifi_stations[i] = stations[i]->GetObject<WifiNetDevice>();
+  }
+
+  std::cout << "Number of stations:     " << c.GetN() -1 << std::endl;
+  std::cout << "Channel bandwidth:      " << channelBandwidth << " MHz" << std::endl;
 
   //enable FTM through the MAC object
 //  Ptr<RegularWifiMac> ap_mac = wifi_ap->GetMac()->GetObject<RegularWifiMac>();
@@ -304,7 +304,9 @@ int main (int argc, char *argv[])
   // Tracing
   wifiPhy.EnablePcap ("ftm-example", devices);
 
-  Simulator::ScheduleNow (&GenerateTraffic, wifi_ap, wifi_sta, recvAddr);
+  for (int i = 0; i < numberOfStations; i++){
+    Simulator::ScheduleNow (&GenerateTraffic, wifi_ap, wifi_stations[i], recvAddr);
+  }
   // Simulator::ScheduleNow (&GenerateTraffic, wifi_ap, wifi_sta_2, recvAddr);
 
   //set the default FTM params through the attribute system
