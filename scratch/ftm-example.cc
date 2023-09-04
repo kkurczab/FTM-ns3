@@ -42,28 +42,31 @@
 #include "ns3/mgt-headers.h"
 #include "ns3/ftm-error-model.h"
 #include "ns3/pointer.h"
-
+#include "ns3/wifi-mac-helper.h"
+#include "ns3/wifi-helper.h"
 
 using namespace ns3;
 
 //Simulation parameters with their default value
-int numberOfBurstsExponent = 1; //2 bursts
-int burstDuration = 7; //8 ms duration
-int minDeltaFtm = 10; //1000 us between frames
+int numberOfBurstsExponent = 7; //2 bursts for =1
+int burstDuration = 7; //4 ms duration for =6
+int minDeltaFtm = 10; //100 us between frames for =1
 int partialTsfTimer = 0;
 bool partialTsfNoPref = true;
 bool asapCapable = false;
-bool asap = true;
+bool asap = false;
 int ftmsPerBurst = 2;
 int formatAndBandwidth = 0;
-int burstPeriod = 10; //1000 ms between burst periods
+float burstPeriod = 0.01; //100 ms between burst periods for =10
 
 int frequency = 0;
-int numberOfStations = 2;
+int numberOfStations = 1;
 int rxGain = 0;
 int propagationLossModel = 0;
 int channelBandwidth = 20;
 int distance = 5;
+
+std::string pcapPath = "ftm-example";
 
 NS_LOG_COMPONENT_DEFINE ("FtmExample");
 
@@ -134,16 +137,16 @@ static void GenerateTraffic (Ptr<WifiNetDevice> ap, Ptr<WifiNetDevice> sta, Addr
 
   //create the parameter for this session and set them
   FtmParams ftm_params;
-  ftm_params.SetNumberOfBurstsExponent(numberOfBurstsExponent); //2 bursts
-  ftm_params.SetBurstDuration(burstDuration); //8 ms burst duration, this needs to be larger due to long processing delay until transmission
-  ftm_params.SetMinDeltaFtm(minDeltaFtm); //100 us between frames
+  ftm_params.SetNumberOfBurstsExponent(numberOfBurstsExponent);
+  ftm_params.SetBurstDuration(burstDuration);
+  ftm_params.SetMinDeltaFtm(minDeltaFtm);
   ftm_params.SetPartialTsfTimer(partialTsfTimer);
   ftm_params.SetPartialTsfNoPref(partialTsfNoPref);
   ftm_params.SetAsapCapable(asapCapable);
   ftm_params.SetAsap(asap);
   ftm_params.SetFtmsPerBurst(ftmsPerBurst);
   ftm_params.SetFormatAndBandwidth(formatAndBandwidth);
-  ftm_params.SetBurstPeriod(burstPeriod); //1000 ms between burst periods
+  ftm_params.SetBurstPeriod(burstPeriod);
     
   ftm_params.SetStatusIndication(FtmParams::RESERVED);
   ftm_params.SetStatusIndicationValue(0);
@@ -177,6 +180,7 @@ int main (int argc, char *argv[])
   cmd.AddValue ("numberOfStations", "1 - ...", numberOfStations);
   cmd.AddValue ("channelBandwidth", "20/40/80/160 MHz", channelBandwidth);
   cmd.AddValue ("distance", "0 - ... m", distance);
+  cmd.AddValue ("pcapPath", "---", pcapPath);
 
   cmd.Parse (argc, argv);
 
@@ -189,10 +193,10 @@ int main (int argc, char *argv[])
   WifiHelper wifi;
   
   if(!frequency){
-  	wifi.SetStandard(WIFI_STANDARD_80211n_2_4GHZ);
+  	wifi.SetStandard (WIFI_STANDARD_80211n_2_4GHZ);
     std::cout << "Frequency:              2.4 GHz" << std::endl;
   } else {
-  	wifi.SetStandard(WIFI_STANDARD_80211n_5GHZ);
+  	wifi.SetStandard (WIFI_STANDARD_80211n_5GHZ);
     std::cout << "Frequency:              5 GHz" << std::endl;
   }
   YansWifiPhyHelper wifiPhy;
@@ -224,7 +228,8 @@ int main (int argc, char *argv[])
 
   // Add a mac and disable rate control
   WifiMacHelper wifiMac;
-  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
+  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
+                                "RtsCtsThreshold", StringValue ("500")); // so as to force RTS/CTS for data frames
 
   // Setup the rest of the mac
   Ssid ssid = Ssid ("wifi-default");
@@ -258,35 +263,27 @@ int main (int argc, char *argv[])
   Ptr<ListPositionAllocator> positionAllocs [numberOfStations];
   Ptr<NetDevice> stations[numberOfStations];
   Ptr<WifiNetDevice> wifi_stations[numberOfStations];
-
+  
+  // int k = 1; // if numberOfStations = <5, 8> then k=1, if numberOfStations = <9,12> k=2
   // setup stations.
   for (int i = 0; i < numberOfStations; i++){
-    double xCoord, yCoord;
-    if (i % 4 == 0) { // First station
-      xCoord = distanceBetweenStations;
-      yCoord = -(i / 4) * distanceBetweenStations;
-    } else if (i % 4 == 1) { // Second station
-      xCoord = distanceBetweenStations + (i / 4) * distanceBetweenStations;
-      yCoord = distanceBetweenStations;
-    } else if (i % 4 == 2) { // Third station
-      xCoord = -distanceBetweenStations;
-      yCoord = distanceBetweenStations + (i / 4) * distanceBetweenStations;
-    } else { // Fourth station
-      xCoord = -(i / 4) * distanceBetweenStations;
-      yCoord = -distanceBetweenStations;
-    }
-    
+     // Set up the stations in a circle around the AP
+    double angle = 2 * M_PI * i / numberOfStations;
+    double xCoord = distance * cos(angle);
+    double yCoord = distance * sin(angle);
+    std::cout << "Station " << i << ": " << "(" << xCoord << ", " << yCoord << ")" << std::endl;
+
     staDevices[i] = wifi.Install (wifiPhy, wifiMac, c.Get (i+1));
     devices.Add (staDevices[i]);
     positionAllocs[i] = CreateObject<ListPositionAllocator> ();
-    positionAllocs[i]->Add (Vector (5 + i*5, 0, 0));
+    positionAllocs[i]->Add (Vector (xCoord, yCoord, 0));
     mobility.SetPositionAllocator (positionAllocs[i]);
     mobility.Install(c.Get (i+1));
     stations[i] = staDevices[i].Get(0);
     wifi_stations[i] = stations[i]->GetObject<WifiNetDevice>();
   }
 
-  std::cout << "Number of stations:     " << c.GetN() -1 << std::endl;
+  std::cout << "Number of stations:     " << c.GetN() - 1 << std::endl;
   std::cout << "Channel bandwidth:      " << channelBandwidth << " MHz" << std::endl;
 
   //enable FTM through the MAC object
@@ -297,15 +294,15 @@ int main (int argc, char *argv[])
 
   //load FTM map for usage
   map = CreateObject<WirelessFtmErrorModel::FtmMap> ();
-  map->LoadMap ("src/wifi/ftm_map/FTM_Wireless_Error.map");
+  map->LoadMap ("src/wifi/ftm_map/50x50.map"); // [-25, 25]
   //set FTM map through attribute system
 //  Config::SetDefault ("ns3::WirelessFtmErrorModel::FtmMap", PointerValue (map));
 
   // Tracing
-  wifiPhy.EnablePcap ("ftm-example", devices);
+  wifiPhy.EnablePcap (pcapPath, devices);
 
   for (int i = 0; i < numberOfStations; i++){
-    Simulator::ScheduleNow (&GenerateTraffic, wifi_ap, wifi_stations[i], recvAddr);
+    Simulator::Schedule (Seconds(20 + i * 0.1), &GenerateTraffic, wifi_ap, wifi_stations[i], recvAddr);
   }
   // Simulator::ScheduleNow (&GenerateTraffic, wifi_ap, wifi_sta_2, recvAddr);
 
@@ -317,7 +314,7 @@ int main (int argc, char *argv[])
   //set time resolution to pico seconds for the time stamps, as default is in nano seconds. IMPORTANT
   Time::SetResolution(Time::PS);
 
-  Simulator::Stop (Seconds (20.0));
+  Simulator::Stop (Seconds (50.0));
   Simulator::Run ();
   Simulator::Destroy ();
 
