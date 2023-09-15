@@ -20,6 +20,9 @@
  * Based on the "wifi-simple-infra.cc" example.
  * Modified by Christos Laskos.
  * 2022
+ *
+ * (Unofficially) Changed to being based on "wifi-simple-adhoc.cc" example.
+ * 2023
  */
 
 #include "ns3/command-line.h"
@@ -44,20 +47,94 @@
 #include "ns3/pointer.h"
 #include "ns3/wifi-mac-helper.h"
 #include "ns3/wifi-helper.h"
+#include "ns3/arp-cache.h"
+#include "ns3/object-factory.h"
+#include "ns3/arp-cache.h"
+#include "ns3/ipv4-l3-protocol.h"
+#include "ns3/object-vector.h"
+#include "ns3/ipv4-interface.h"
+#include "ns3/net-device.h"
+#include "ns3/mac48-address.h"
+#include "ns3/ipv4-header.h"
+#include "ns3/packet.h"
+#include "ns3/node-list.h"
+
+#include <iostream>
+#include <vector>
+#include <math.h>
+#include <string>
+#include <fstream>
+#include <string>
+#include <ctime>
+#include <iomanip>
+#include <sys/stat.h>
+#include <chrono>  // For high resolution clock
+#include <cstdlib>
 
 using namespace ns3;
+// --- Populate ARP cache ---
+void PopulateARPcache () {
+    Ptr<ArpCache> arp = CreateObject<ArpCache> ();
+    arp->SetAliveTimeout (Seconds (3600 * 24 * 365) );
 
-//Simulation parameters with their default value
-int numberOfBurstsExponent = 7; //2 bursts for =1
-int burstDuration = 7; //4 ms duration for =6
-int minDeltaFtm = 10; //100 us between frames for =1
+    for (NodeList::Iterator i = NodeList::Begin (); i != NodeList::End (); ++i)
+    {
+        Ptr<Ipv4L3Protocol> ip = (*i)->GetObject<Ipv4L3Protocol> ();
+        NS_ASSERT (ip !=0);
+        ObjectVectorValue interfaces;
+        ip->GetAttribute ("InterfaceList", interfaces);
+
+        for (ObjectVectorValue::Iterator j = interfaces.Begin (); j != interfaces.End (); j++)
+        {
+            Ptr<Ipv4Interface> ipIface = (*j).second->GetObject<Ipv4Interface> ();
+            NS_ASSERT (ipIface != 0);
+            Ptr<NetDevice> device = ipIface->GetDevice ();
+            NS_ASSERT (device != 0);
+            Mac48Address addr = Mac48Address::ConvertFrom (device->GetAddress () );
+
+            for (uint32_t k = 0; k < ipIface->GetNAddresses (); k++)
+            {
+                Ipv4Address ipAddr = ipIface->GetAddress (k).GetLocal();
+                if (ipAddr == Ipv4Address::GetLoopback ())
+                    continue;
+
+                ArpCache::Entry *entry = arp->Add (ipAddr);
+                Ipv4Header ipv4Hdr;
+                ipv4Hdr.SetDestination (ipAddr);
+                Ptr<Packet> p = Create<Packet> (100);
+                entry->MarkWaitReply (ArpCache::Ipv4PayloadHeaderPair (p, ipv4Hdr));
+                entry->MarkAlive (addr);
+            }
+        }
+    }
+
+    for (NodeList::Iterator i = NodeList::Begin (); i != NodeList::End (); ++i)
+    {
+        Ptr<Ipv4L3Protocol> ip = (*i)->GetObject<Ipv4L3Protocol> ();
+        NS_ASSERT (ip !=0);
+        ObjectVectorValue interfaces;
+        ip->GetAttribute ("InterfaceList", interfaces);
+
+        for (ObjectVectorValue::Iterator j = interfaces.Begin (); j != interfaces.End (); j ++)
+        {
+            Ptr<Ipv4Interface> ipIface = (*j).second->GetObject<Ipv4Interface> ();
+            ipIface->SetAttribute ("ArpCache", PointerValue (arp) );
+        }
+    }
+}
+// ---------
+
+// Simulation parameters with their default value
+int numberOfBurstsExponent = 1; //2 bursts
+int burstDuration = 5; //2 ms
+int minDeltaFtm = 11; //time between frames [100 us]
 int partialTsfTimer = 0;
 bool partialTsfNoPref = true;
 bool asapCapable = false;
-bool asap = false;
-int ftmsPerBurst = 2;
+bool asap = true;
+int ftmsPerBurst = 1;
 int formatAndBandwidth = 0;
-float burstPeriod = 0.01; //100 ms between burst periods for =10
+int burstPeriod = 10; //time between burst periods [100 ms]
 
 int frequency = 0;
 int numberOfStations = 1;
@@ -88,7 +165,7 @@ Ptr<WirelessFtmErrorModel::FtmMap> map;
 static void GenerateTraffic (Ptr<WifiNetDevice> ap, Ptr<WifiNetDevice> sta, Address recvAddr)
 {
   Ptr<RegularWifiMac> sta_mac = sta->GetMac()->GetObject<RegularWifiMac>();
-
+ 
   Mac48Address to = Mac48Address::ConvertFrom (recvAddr);
 
   Ptr<FtmSession> session = sta_mac->NewFtmSession(to);
@@ -136,7 +213,10 @@ static void GenerateTraffic (Ptr<WifiNetDevice> ap, Ptr<WifiNetDevice> sta, Addr
   session->SetFtmErrorModel(wireless_sig_str_error);
 
   //create the parameter for this session and set them
-  FtmParams ftm_params;
+  FtmParams ftm_params;  
+  ftm_params.SetStatusIndication(FtmParams::RESERVED);
+  ftm_params.SetStatusIndicationValue(0);
+
   ftm_params.SetNumberOfBurstsExponent(numberOfBurstsExponent);
   ftm_params.SetBurstDuration(burstDuration);
   ftm_params.SetMinDeltaFtm(minDeltaFtm);
@@ -147,9 +227,6 @@ static void GenerateTraffic (Ptr<WifiNetDevice> ap, Ptr<WifiNetDevice> sta, Addr
   ftm_params.SetFtmsPerBurst(ftmsPerBurst);
   ftm_params.SetFormatAndBandwidth(formatAndBandwidth);
   ftm_params.SetBurstPeriod(burstPeriod);
-    
-  ftm_params.SetStatusIndication(FtmParams::RESERVED);
-  ftm_params.SetStatusIndicationValue(0);
 
 
   session->SetFtmParams(ftm_params);
@@ -228,15 +305,16 @@ int main (int argc, char *argv[])
 
   // Add a mac and disable rate control
   WifiMacHelper wifiMac;
-  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
-                                "RtsCtsThreshold", StringValue ("500")); // so as to force RTS/CTS for data frames
+  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager"
+  //,                                "RtsCtsThreshold", StringValue ("200")
+                                ); // so as to force RTS/CTS for data frames
 
   // Setup the rest of the mac
   Ssid ssid = Ssid ("wifi-default");
 
-  // ------------------------------Setup AP -------------------------------
-  wifiMac.SetType ("ns3::ApWifiMac",
-                   "Ssid", SsidValue (ssid));
+  // --- Setup AP ---
+  wifiMac.SetType ("ns3::AdhocWifiMac");
+  // ,                   "Ssid", SsidValue (ssid));
   NetDeviceContainer apDevice = wifi.Install (wifiPhy, wifiMac, c.Get (0));
   NetDeviceContainer devices = apDevice;
 
@@ -250,28 +328,35 @@ int main (int argc, char *argv[])
   Ptr<NetDevice> ap = apDevice.Get(0);
 
   Address recvAddr = ap->GetAddress();
-
+  std::cout << "AP address: " << recvAddr << std::endl;
   //convert net device to wifi net device
   Ptr<WifiNetDevice> wifi_ap = ap->GetObject<WifiNetDevice>();
 
-  // ------------------------------Setup STAs------------------------------
-  wifiMac.SetType ("ns3::StaWifiMac",
-                   "Ssid", SsidValue (ssid));
+  // --- Setup STAs ---
+  wifiMac.SetType ("ns3::AdhocWifiMac");
+                  //  "Ssid", SsidValue (ssid));
+                  //  ,"ActiveProbing", BooleanValue (false));
   // wifiMac.SetType ("ns3::StaWifiMac");
 
   NetDeviceContainer staDevices[numberOfStations];
   Ptr<ListPositionAllocator> positionAllocs [numberOfStations];
   Ptr<NetDevice> stations[numberOfStations];
   Ptr<WifiNetDevice> wifi_stations[numberOfStations];
-  
-  // int k = 1; // if numberOfStations = <5, 8> then k=1, if numberOfStations = <9,12> k=2
+  Address sta[numberOfStations];
+
   // setup stations.
   for (int i = 0; i < numberOfStations; i++){
      // Set up the stations in a circle around the AP
     double angle = 2 * M_PI * i / numberOfStations;
     double xCoord = distance * cos(angle);
     double yCoord = distance * sin(angle);
-    std::cout << "Station " << i << ": " << "(" << xCoord << ", " << yCoord << ")" << std::endl;
+    if ((xCoord > -9.18485e-10 && xCoord < 0) || (xCoord < 9.18485e-10 && xCoord > 0)){
+      xCoord = 0.0;
+    }
+    if ((yCoord > -9.18485e-10 && yCoord < 0) || (yCoord < 9.18485e-10 && yCoord > 0)){
+      yCoord = 0.0;
+    }
+    std::cout << "Station " << i + 1 << ": " << "(" << xCoord << ", " << yCoord << ")" << std::endl;
 
     staDevices[i] = wifi.Install (wifiPhy, wifiMac, c.Get (i+1));
     devices.Add (staDevices[i]);
@@ -281,10 +366,36 @@ int main (int argc, char *argv[])
     mobility.Install(c.Get (i+1));
     stations[i] = staDevices[i].Get(0);
     wifi_stations[i] = stations[i]->GetObject<WifiNetDevice>();
+    
+    sta[i] = stations[i]->GetAddress();
+    std::cout << "Station " << i + 1 << " address: " << sta[i] << std::endl;
   }
 
   std::cout << "Number of stations:     " << c.GetN() - 1 << std::endl;
   std::cout << "Channel bandwidth:      " << channelBandwidth << " MHz" << std::endl;
+
+  // --- Populate ARP cache ---
+  InternetStackHelper stack;
+  stack.Install (c.Get(0));
+  for(int i = 0; i < numberOfStations; i++){
+	  stack.Install (c.Get(i + 1));
+  }
+
+  Ipv4AddressHelper address;
+
+  for(int i = 0; i < 1; i++){
+	  std::string addrString;
+	  addrString =  "10.1." + std::to_string(i) + ".0";
+	  const char *cstr = addrString.c_str(); //convert to constant char
+	  address.SetBase (Ipv4Address(cstr), "255.255.255.0");
+    if(i == 0){
+	    address.Assign (apDevice.Get(i));
+    }
+    address.Assign (staDevices[i]);
+  }
+  
+  PopulateARPcache ();
+  // ---------
 
   //enable FTM through the MAC object
 //  Ptr<RegularWifiMac> ap_mac = wifi_ap->GetMac()->GetObject<RegularWifiMac>();
@@ -302,9 +413,9 @@ int main (int argc, char *argv[])
   wifiPhy.EnablePcap (pcapPath, devices);
 
   for (int i = 0; i < numberOfStations; i++){
-    Simulator::Schedule (Seconds(20 + i * 0.1), &GenerateTraffic, wifi_ap, wifi_stations[i], recvAddr);
+    // Simulator::ScheduleNow (&GenerateTraffic, wifi_ap, wifi_stations[i], recvAddr);
+    Simulator::Schedule (Seconds(i * 200), &GenerateTraffic, wifi_ap, wifi_stations[i], recvAddr);
   }
-  // Simulator::ScheduleNow (&GenerateTraffic, wifi_ap, wifi_sta_2, recvAddr);
 
   //set the default FTM params through the attribute system
 //  Ptr<FtmParamsHolder> holder = CreateObject<FtmParamsHolder>();
@@ -314,7 +425,7 @@ int main (int argc, char *argv[])
   //set time resolution to pico seconds for the time stamps, as default is in nano seconds. IMPORTANT
   Time::SetResolution(Time::PS);
 
-  Simulator::Stop (Seconds (50.0));
+  Simulator::Stop (Seconds (100.0));
   Simulator::Run ();
   Simulator::Destroy ();
 
