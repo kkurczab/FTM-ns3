@@ -126,17 +126,17 @@ void PopulateARPcache () {
 
 // Simulation parameters with their default value
 int numberOfBurstsExponent = 1; //2 bursts
-int burstDuration = 5; //2 ms
-int minDeltaFtm = 11; //time between frames [100 us]
+int burstDuration = 11; //2 ms
+int minDeltaFtm = 640; //time between frames [100 us]
 int partialTsfTimer = 0;
 bool partialTsfNoPref = true;
 bool asapCapable = false;
 bool asap = true;
-int ftmsPerBurst = 1;
+int ftmsPerBurst = 2;
 int formatAndBandwidth = 0;
-int burstPeriod = 10; //time between burst periods [100 ms]
+int burstPeriod = 1; //time between burst periods [100 ms]
 
-int frequency = 0;
+int frequency = 1;
 int numberOfStations = 1;
 int rxGain = 0;
 int propagationLossModel = 0;
@@ -241,18 +241,18 @@ int main (int argc, char *argv[])
 
   // Parameters and their available values
   CommandLine cmd;
-  cmd.AddValue ("numberOfBurstsExponent", "1 - 4", numberOfBurstsExponent);
-  cmd.AddValue ("burstDuration", "6 - 11", burstDuration);
-  cmd.AddValue ("minDeltaFtm", "0 - 26", minDeltaFtm);
+  cmd.AddValue ("numberOfBurstsExponent", "1 - 8", numberOfBurstsExponent);
+  cmd.AddValue ("burstDuration", "2 - 11", burstDuration);
+  cmd.AddValue ("minDeltaFtm", "1 - ...", minDeltaFtm);
   cmd.AddValue ("partialTsfTimer", "0 - 65535", partialTsfTimer);
   cmd.AddValue ("partialTsfNoPref", "0 or 1", partialTsfNoPref);
   cmd.AddValue ("asapCapable", "Only 0", asapCapable);
   cmd.AddValue ("asap", "0 or 1", asap);
-  cmd.AddValue ("ftmsPerBurst", "0 - 7", ftmsPerBurst);
-  cmd.AddValue ("formatAndBandwidth", "0 - 63", formatAndBandwidth);
-  cmd.AddValue ("burstPeriod", "0 or 1", burstPeriod);
+  cmd.AddValue ("ftmsPerBurst", "1 - ...", ftmsPerBurst);
+  cmd.AddValue ("formatAndBandwidth", "0", formatAndBandwidth);
+  cmd.AddValue ("burstPeriod", "1 - ...", burstPeriod);
   cmd.AddValue ("frequency", "2.4 (0) or 5 (1) GHz", frequency);
-  cmd.AddValue ("rxGain", "(0) - no gain, (1- 3138) - add gain", rxGain);
+  cmd.AddValue ("rxGain", "(0) - no gain, (1) - add gain", rxGain);
   cmd.AddValue ("propagationLossModel", "ThreeGpp (0) or Nakagami (1)", propagationLossModel);
   cmd.AddValue ("numberOfStations", "1 - ...", numberOfStations);
   cmd.AddValue ("channelBandwidth", "20/40/80/160 MHz", channelBandwidth);
