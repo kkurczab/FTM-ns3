@@ -29,16 +29,16 @@ currentSimulationNumber = 0
 
 # Define the range of parameters
 parameters = {
-    "numberOfBurstsExponent": [1],
-    "burstDuration": [5, 11], # min 5, max 11
-    "minDeltaFtm": [5, 10, 320, 640],
-    "asap": [0, 1], # 0, 1
-    "ftmsPerBurst": [1, 2, 3],
-    "burstPeriod": [1, 10],
-    "frequency": [0, 1],
+    # "numberOfBurstsExponent": [1, 2, 3, 4],
+    # "burstDuration": [5, 11], # min 5, max 11
+    # "minDeltaFtm": [5, 10, 320, 640],
+    # "asap": [0, 1], # 0, 1
+    # "ftmsPerBurst": [1, 2, 3],
+    # "burstPeriod": [1, 10],
+    # "frequency": [0, 1],
     "numberOfStations": (2**p for p in range(0, 8)),
-    "propagationLossModel": [0, 1],
-    "channelBandwidth": [20, 40],
+    # "propagationLossModel": [0, 1],
+    # "channelBandwidth": [20, 40],
     "distance": [5, 30]
 }
 # Create a directory to save outputs (delete the old outputs)
@@ -85,7 +85,8 @@ with open(csv_file_path, mode='w', newline='') as csv_file:
         mean_signal_strength_values = []
         num_measurements_values = []
 
-        for times in range(1, 6): # number of runs
+        number_of_runs = 5
+        for times in range(1, number_of_runs + 1): # number of runs
             seed = random.randint(100000, 999999)
     
             # Create a directory for this run
@@ -109,7 +110,7 @@ with open(csv_file_path, mode='w', newline='') as csv_file:
         
             # print(f"Run {times} with {output_file_name} completed.")
             currentSimulationNumber += 1
-            print(f"Current simulation: {currentSimulationNumber}/20480")
+            print(f"Current simulation: {currentSimulationNumber}/{(len(param_combinations) * number_of_runs)}")
            
             # Collect results from the output.txt file
             output_file_path = os.path.join(run_dir, "output.txt")
@@ -190,11 +191,11 @@ with open(csv_file_path, mode='w', newline='') as csv_file:
     
         csv_writer.writerow([numberOfStations_csv, distance_csv, measurementError, numberOfBurstsExponent_csv, burstDuration_csv, minDeltaFtm_csv, asap_csv, ftmsPerBurst_csv, burstPeriod_csv, frequency_csv, propagationLossModel_csv, channelBandwidth_csv, int(mean_rtt_avg), int(mean_rtt_std), round(mean_signal_strength_avg, 1), round(mean_signal_strength_std, 1), int(num_measurements_avg), int(num_measurements_std)])
 
-        if os.path.exists(output_dir_base):
-            import shutil
-            shutil.rmtree(output_dir_base)
+        # if os.path.exists(output_dir_base):
+        #     import shutil
+        #     shutil.rmtree(output_dir_base)
 
-        os.makedirs(output_dir_base, exist_ok=True)
+        # os.makedirs(output_dir_base, exist_ok=True)
 
         # Store results
         combination_str = "_".join([f"{param_name}={param_value}" for param_name, param_value in combination])
@@ -202,7 +203,7 @@ with open(csv_file_path, mode='w', newline='') as csv_file:
         mean_signal_strength_results[combination_str] = {'mean': mean_signal_strength_avg, 'std': mean_signal_strength_std}
         num_measurements_results[combination_str] = {'mean': num_measurements_avg, 'std': num_measurements_std}    
 
-# GRAPH CREATION
+# GRAPH CREATION - a small modification/fix could be necessary, due to the CSV creation process above
 # # Specify the parameters to include in the plot
 # y_axis_parameters = ['Mean RTT [ps]']
 # # , 'Mean Signal Strength [dBm]', 'Number of Measurements']
@@ -250,7 +251,6 @@ with open(csv_file_path, mode='w', newline='') as csv_file:
         
 #         # Add a constant line at a specific Y-axis position
 #         if ylabel == 'Mean RTT [ps]':
-#             # real_distance = 5
 #             plt.axhline(y=(distance * 2 / 0.0003), color='r', linestyle='--', label=f'RTT of the Real distance {distance} [m]')
     
 #         plt.xlabel("Number of Stations")
