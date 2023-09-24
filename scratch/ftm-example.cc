@@ -21,7 +21,16 @@
  * Modified by Christos Laskos.
  * 2022
  *
- * (Unofficially) Changed to being based on "wifi-simple-adhoc.cc" example.
+ * For the purpose of this thesis modified by Krzysztof Kurczab.
+ * Changed to being based on "wifi-simple-adhoc.cc" example.
+ * These features were added:
+ *  - Arp cache population
+ *  - All the available parameters
+ *  - New, detailed outputs
+ *  - The configurations of all the parameters
+ *  - Automated creations of (big number of) stations
+ *  - The placement of the stations in a circle around the AP
+ *  - The time seperation of the stations' starting time
  * 2023
  */
 
@@ -122,7 +131,6 @@ void PopulateARPcache () {
         }
     }
 }
-// ---------
 
 // Simulation parameters with their default value
 int numberOfBurstsExponent = 1; //2 bursts
@@ -228,7 +236,6 @@ static void GenerateTraffic (Ptr<WifiNetDevice> ap, Ptr<WifiNetDevice> sta, Addr
   ftm_params.SetFormatAndBandwidth(formatAndBandwidth);
   ftm_params.SetBurstPeriod(burstPeriod);
 
-
   session->SetFtmParams(ftm_params);
 
   session->SetSessionOverCallback(MakeCallback(&SessionOver));
@@ -255,7 +262,7 @@ int main (int argc, char *argv[])
   cmd.AddValue ("rxGain", "(0) - no gain, (1) - add gain", rxGain);
   cmd.AddValue ("propagationLossModel", "ThreeGpp (0) or Nakagami (1)", propagationLossModel);
   cmd.AddValue ("numberOfStations", "1 - ...", numberOfStations);
-  cmd.AddValue ("channelBandwidth", "20/40/80/160 MHz", channelBandwidth);
+  cmd.AddValue ("channelBandwidth", "20 / 40 / 80 / 160 MHz", channelBandwidth);
   cmd.AddValue ("distance", "0 - ... m", distance);
   cmd.AddValue ("pcapPath", "---", pcapPath);
 
@@ -395,7 +402,6 @@ int main (int argc, char *argv[])
   }
   
   PopulateARPcache ();
-  // ---------
 
   //enable FTM through the MAC object
 //  Ptr<RegularWifiMac> ap_mac = wifi_ap->GetMac()->GetObject<RegularWifiMac>();
