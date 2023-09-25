@@ -21,14 +21,14 @@
  * Modified by Christos Laskos.
  * 2022
  *
- * For the purpose of this thesis modified by Krzysztof Kurczab.
+ * For the purpose of this thesis modified by Krzysztof Kurczab as part of a master's thesis at the AGH University of Kraków.
  * Changed to being based on "wifi-simple-adhoc.cc" example.
  * These features were added:
+ *  - Changed wifiMac type from infrastruce to Ad-hoc, in order to get rid off unnecessary traffic
  *  - Arp cache population
- *  - All the available parameters
+ *  - All the command line arguments
  *  - New, detailed outputs
- *  - The configurations of all the parameters
- *  - Automated creations of (big number of) stations
+ *  - Automated creations of stations
  *  - The placement of the stations in a circle around the AP
  *  - The time seperation of the stations' starting time
  * 2023
