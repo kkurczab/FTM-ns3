@@ -5,9 +5,9 @@ In order to enable convenient  simulations, I added different simulation paramet
 
 For specific parameter combinations, the simulation did not start due to a pronounced correlation between the _burstDuration_ and _minDeltaFtm_ parameters. Consequently, the code was adjusted to adhere to the rules listed as in the algorithm below:
 
-If burstDuration = 5 and minDeltaFtm in {320, 640} or
-burstDuration = 5 and ftmsPerBurst in {2, 3} and minDeltaFtm = 10 or
-burstDuration = 11 and minDeltaFtm in {5, 10} or
+If burstDuration = 5 and minDeltaFtm in {320, 640} **or**
+burstDuration = 5 and ftmsPerBurst in {2, 3} and minDeltaFtm = 10 **or**
+burstDuration = 11 and minDeltaFtm in {5, 10} **or**
 burstDuration = 11 and ftmsPerBurst in {2, 3} and minDeltaFtm = 640
-  skip the combination
+  **skip the combination**
 EndIf
