@@ -1,3 +1,9 @@
+Master Thesis Title: Simulation Analysis of the IEEE 802.11mc Fine-Time Measurement Protocol
+Author: mgr. inż. Krzysztof Kurczab
+Date of Defense: 27.10.2023
+University: AGH University in Kraków
+Thesis supervisor: prof. dr hab. inż. Katarzyna Kosek-Szott
+
 # FTM-ns3
 The FTM protocol implementation in the NS3 simulator, provided by https://github.com/tkn-tub/wifi-ftm-ns3 and edited by me for the purpose of my Master Thesis.
 
